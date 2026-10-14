@@ -108,7 +108,8 @@ def run_backtest(
             position["funding"] += funding_cashflow
 
         # A trend-exit event is known at this timestamp and can execute at this bar open.
-        event_now = signal_map.get(ts)
+        event_ts = bars_1m.index[i - 1] if i > 0 else None
+        event_now = signal_map.get(event_ts) if event_ts is not None else None
         if position is not None and event_now is not None and config.trend_exit_enabled:
             should_exit = (
                 position["side"] == 1 and bool(event_now.get("exit_long", False))
@@ -186,13 +187,13 @@ def run_backtest(
                 })
                 position = None
 
-        # Signal timestamps denote when the completed candle became available. With candle-open
-        # timestamps, an event at ts may execute at this bar open, never at the prior bar close.
+        # Signals are only known after their event timestamp. Execute at the following 1m open,
+        # avoiding the optimistic assumption that the event-time open can be observed and filled.
         # Re-evaluate realized loss before opening a new position.
         if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
             daily_locked = True
         if position is None and not daily_locked:
-            event = signal_map.get(ts)
+            event = event_now
             if event and int(event["signal"]) != 0 and pd.notna(event["atr"]) and float(event["atr"]) > 0:
                 side = int(event["signal"])
                 entry_raw = float(bar["open"])
