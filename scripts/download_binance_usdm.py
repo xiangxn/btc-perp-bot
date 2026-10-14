@@ -133,14 +133,16 @@ def main() -> None:
     bars = download_klines(start_ms, end_ms)
     funding = download_funding(start_ms, end_ms)
     bars["funding_rate"] = 0.0
+    funding_count = 0
     if not funding.empty:
         matching = bars.index.intersection(funding.index)
+        funding_count = len(matching)
         bars.loc[matching, "funding_rate"] = funding.loc[matching, "funding_rate"].to_numpy()
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     bars.rename_axis("timestamp").to_csv(output, date_format="%Y-%m-%dT%H:%M:%SZ")
     print(f"Wrote {len(bars):,} candles to {output}")
-    print(f"Funding settlements aligned to candles: {int((bars['funding_rate'] != 0).sum()):,}")
+    print(f"Funding settlements aligned to candles: {funding_count:,}")
 
 
 if __name__ == "__main__":
