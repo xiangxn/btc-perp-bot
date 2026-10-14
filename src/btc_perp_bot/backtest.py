@@ -106,9 +106,17 @@ def run_backtest(
             raw_exit = None
             if stop_hit and target_hit:
                 exit_reason = "stop_and_target_same_bar"
-                raw_exit = position["stop"] if config.intrabar_policy in ("adverse", "stop_first") else position["target"]
+                if position["side"] == 1:
+                    raw_exit = min(float(position["stop"]), float(bar["open"]))
+                else:
+                    raw_exit = max(float(position["stop"]), float(bar["open"]))
             elif stop_hit:
-                exit_reason, raw_exit = "stop", position["stop"]
+                exit_reason = "stop"
+                # A stop-market order can fill worse than its trigger after a gap.
+                if position["side"] == 1:
+                    raw_exit = min(float(position["stop"]), float(bar["open"]))
+                else:
+                    raw_exit = max(float(position["stop"]), float(bar["open"]))
             elif target_hit:
                 exit_reason, raw_exit = "target", position["target"]
             elif config.max_holding_bars is not None and i - position["entry_i"] >= config.max_holding_bars:
@@ -223,6 +231,14 @@ def _summarize(trades: pd.DataFrame, curve: pd.DataFrame, initial_equity: float,
         "average_win": float(winners.mean()) if len(winners) else 0.0,
         "average_loss": float(losers.mean()) if len(losers) else 0.0,
         "max_consecutive_losses": _max_consecutive_losses(pnl.tolist()),
+        "total_fees": float(trades["entry_fee"].sum() + trades["exit_fee"].sum()) if not trades.empty else 0.0,
+        "total_funding_cashflow": float(trades["funding"].sum()) if not trades.empty else 0.0,
+        "total_gross_pnl": float(trades["gross_pnl"].sum()) if not trades.empty else 0.0,
+        "total_trade_net_pnl": float(pnl.sum()) if len(pnl) else 0.0,
+        "fees_as_pct_of_positive_gross_pnl": (
+            float((trades["entry_fee"].sum() + trades["exit_fee"].sum()) / trades.loc[trades["gross_pnl"] > 0, "gross_pnl"].sum() * 100)
+            if not trades.empty and trades.loc[trades["gross_pnl"] > 0, "gross_pnl"].sum() > 0 else 0.0
+        ),
     }
 
 
