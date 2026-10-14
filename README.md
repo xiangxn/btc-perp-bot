@@ -22,7 +22,7 @@ The aspirational 1,000x capital goal is not a performance assumption or guarante
 
 1. Obtain BTC perpetual 1m OHLCV history; derive 5m and 15m candles without lookahead.
 2. Implement and test indicators and the baseline breakout strategy.
-3. Compare structural stops vs ATR stops, and fixed 2R targets vs trend-following exits.
+3. Compare ATR vs structural stops and fixed 2R vs trend-regime exits as four separate variants.
 4. Run cost-aware backtests with chronological train/validation/test splits.
 5. Review net PnL, max drawdown, Profit Factor, win/loss distribution, losing streaks, fee share, and long/short breakdown.
 6. Paper trade; only then consider a tightly limited live pilot.
@@ -49,10 +49,7 @@ The initial implementation uses local CSV data so the backtest can be reproduced
 Download public Binance USDⓈ-M BTCUSDT perpetual data (no API key required):
 
 ```bash
-python scripts/download_binance_usdm.py \\
-  --start 2025-01-01T00:00:00Z \\
-  --end 2025-04-01T00:00:00Z \\
-  --output data/btcusdt_perp_1m.csv
+python scripts/download_binance_usdm.py --start 2025-01-01T00:00:00Z --end 2025-04-01T00:00:00Z --output data/btcusdt_perp_1m.csv
 ```
 
 The end timestamp is exclusive. The downloader writes UTC candle-open timestamps and a `funding_rate` column that is zero except at aligned funding settlements. Verify source alignment and funding sign conventions before relying on results.
