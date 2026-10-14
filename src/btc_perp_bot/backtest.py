@@ -52,7 +52,9 @@ def run_backtest(
     open. Stop distance is ATR * configured multiple, measured from actual simulated entry.
     This baseline has no partial fills, exchange quantity-step model or liquidation engine yet.
     Funding is applied when an optional ``funding_rate`` column is present; a positive rate is
-    assumed paid by longs and received by shorts at each bar carrying a funding rate.
+    assumed paid by longs and received by shorts at each bar carrying a funding rate. For this
+    reason, funding_rate must be zero except at actual funding settlement timestamps. The equity
+    curve is marked to market and includes an estimated close fee while a position is open.
     """
     validate_ohlcv(bars_1m)
     if not isinstance(bars_1m.index, pd.DatetimeIndex) or bars_1m.index.tz is None:
@@ -82,7 +84,14 @@ def run_backtest(
         day = ts.date()
         if day != current_day:
             current_day = day
-            day_start_equity = equity
+            if i > 0:
+                previous_close = float(bars_1m.iloc[i - 1]["close"])
+                day_start_equity = equity
+                if position is not None:
+                    day_start_equity += position["side"] * (previous_close - position["entry_fill"]) * position["qty"]
+                    day_start_equity -= abs(previous_close * position["qty"]) * config.fee_rate
+            else:
+                day_start_equity = equity
             daily_locked = False
         if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
             daily_locked = True
@@ -148,7 +157,7 @@ def run_backtest(
 
         # A signal timestamp means information became available then; enter no earlier than next bar.
         # Use previous timestamp's signal so a bar cannot fill using a signal revealed at its own close.
-        # Re-evaluate the daily lockout after any exit/funding changes on this bar.
+        # Re-evaluate realized loss before opening a new position.
         if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
             daily_locked = True
         if position is None and not daily_locked and i > 0:
@@ -178,7 +187,47 @@ def run_backtest(
                         "target": target, "funding": 0.0,
                     }
 
-        equity_rows.append({"timestamp": ts, "equity": equity, "daily_locked": daily_locked})
+        # Entry occurs at this bar open, so the remainder of the same bar can hit its stop/target.
+        # If both are touched, use the adverse stop outcome because OHLC cannot reveal the path.
+        if position is not None and position["entry_ts"] == ts:
+            side = position["side"]
+            stop_hit = (float(bar["low"]) <= position["stop"] if side == 1
+                        else float(bar["high"]) >= position["stop"])
+            target_hit = position["target"] is not None and (
+                float(bar["high"]) >= position["target"] if side == 1
+                else float(bar["low"]) <= position["target"]
+            )
+            if stop_hit or target_hit:
+                if stop_hit:
+                    exit_reason = "stop_and_target_same_bar" if target_hit else "stop"
+                    raw_exit = (min(float(position["stop"]), float(bar["open"])) if side == 1
+                                else max(float(position["stop"]), float(bar["open"])))
+                else:
+                    exit_reason, raw_exit = "target", float(position["target"])
+                exit_fill = raw_exit * (1 - slippage_rate if side == 1 else 1 + slippage_rate)
+                exit_fee = abs(exit_fill * position["qty"]) * config.fee_rate
+                gross = side * (exit_fill - position["entry_fill"]) * position["qty"]
+                equity += gross - exit_fee
+                trades.append({
+                    "entry_time": position["entry_ts"], "exit_time": ts,
+                    "side": "long" if side == 1 else "short", "qty": position["qty"],
+                    "entry_price": position["entry_fill"], "exit_price": exit_fill,
+                    "stop_price": position["stop"], "target_price": position["target"],
+                    "gross_pnl": gross, "entry_fee": position["entry_fee"], "exit_fee": exit_fee,
+                    "funding": position["funding"],
+                    "net_pnl": gross - position["entry_fee"] - exit_fee + position["funding"],
+                    "exit_reason": exit_reason,
+                })
+                position = None
+
+        # Mark equity to market for drawdown reporting and daily loss lockout.
+        marked_equity = equity
+        if position is not None:
+            marked_equity += position["side"] * (float(bar["close"]) - position["entry_fill"]) * position["qty"]
+            marked_equity -= abs(float(bar["close"]) * position["qty"]) * config.fee_rate
+        if marked_equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
+            daily_locked = True
+        equity_rows.append({"timestamp": ts, "equity": marked_equity, "cash_equity": equity, "daily_locked": daily_locked})
 
     # Mark open position to the final close and force a conservative final-bar exit.
     if position is not None and len(bars_1m):
@@ -200,6 +249,7 @@ def run_backtest(
         })
         if equity_rows:
             equity_rows[-1]["equity"] = equity
+            equity_rows[-1]["cash_equity"] = equity
 
     trades_frame = pd.DataFrame(trades)
     equity_frame = pd.DataFrame(equity_rows).set_index("timestamp") if equity_rows else pd.DataFrame(columns=["equity", "daily_locked"])
