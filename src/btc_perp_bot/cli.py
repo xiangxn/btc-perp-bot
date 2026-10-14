@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from btc_perp_bot.backtest import BacktestConfig, run_backtest
-from btc_perp_bot.data import load_ohlcv_csv, resample_ohlcv
+from btc_perp_bot.data import load_ohlcv_csv, resample_ohlcv, validate_ohlcv
 from btc_perp_bot.validation import compare_exit_policies, evaluate_chronological_splits
 from btc_perp_bot.strategy import (
     StrategyConfig,
@@ -30,10 +30,12 @@ def main() -> None:
     parser.add_argument("--max-chase-atr", type=float, default=0.25, help="Reject entry if it has chased beyond this multiple of 5m ATR")
     parser.add_argument("--opposing-impulse-atr", type=float, default=1.0, help="Reject entry if recent opposing 1m impulse exceeds this multiple of 1m ATR")
     parser.add_argument("--stop-mode", choices=["atr", "structural"], default="atr")
+    parser.add_argument("--allow-gaps", action="store_true", help="Allow missing 1m timestamps; use only for deliberate gap-handling experiments")
     parser.add_argument("--target-r", type=float, default=2.0, help="Set 0 to disable fixed target")
     args = parser.parse_args()
 
     bars_1m = load_ohlcv_csv(args.input)
+    validate_ohlcv(bars_1m, require_regular_minutes=not args.allow_gaps)
     if len(bars_1m) < 15:
         raise SystemExit("Input must contain at least 15 one-minute bars.")
     bars_5m = resample_ohlcv(bars_1m, "5m")
