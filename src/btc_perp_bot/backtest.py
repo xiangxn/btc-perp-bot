@@ -302,6 +302,12 @@ def run_backtest(
 
 def _summarize(trades: pd.DataFrame, curve: pd.DataFrame, initial_equity: float, final_equity: float) -> dict[str, float | int | None]:
     pnl = trades["net_pnl"] if not trades.empty else pd.Series(dtype=float)
+    long_trades = trades[trades["side"] == "long"] if not trades.empty else pd.DataFrame()
+    short_trades = trades[trades["side"] == "short"] if not trades.empty else pd.DataFrame()
+    if not trades.empty:
+        holding_minutes = (pd.to_datetime(trades["exit_time"], utc=True) - pd.to_datetime(trades["entry_time"], utc=True)).dt.total_seconds() / 60
+    else:
+        holding_minutes = pd.Series(dtype=float)
     winners = pnl[pnl > 0]
     losers = pnl[pnl < 0]
     gross_profit = float(winners.sum())
@@ -321,6 +327,15 @@ def _summarize(trades: pd.DataFrame, curve: pd.DataFrame, initial_equity: float,
         "win_rate_pct": float((pnl > 0).mean() * 100) if len(pnl) else 0.0,
         "profit_factor": gross_profit / gross_loss if gross_loss > 0 else (None if gross_profit > 0 else 0.0),
         "average_trade_net_pnl": float(pnl.mean()) if len(pnl) else 0.0,
+        "expectancy_per_trade": float(pnl.mean()) if len(pnl) else 0.0,
+        "long_trade_count": int(len(long_trades)),
+        "short_trade_count": int(len(short_trades)),
+        "long_net_pnl": float(long_trades["net_pnl"].sum()) if not long_trades.empty else 0.0,
+        "short_net_pnl": float(short_trades["net_pnl"].sum()) if not short_trades.empty else 0.0,
+        "long_win_rate_pct": float((long_trades["net_pnl"] > 0).mean() * 100) if not long_trades.empty else 0.0,
+        "short_win_rate_pct": float((short_trades["net_pnl"] > 0).mean() * 100) if not short_trades.empty else 0.0,
+        "average_holding_minutes": float(holding_minutes.mean()) if len(holding_minutes) else 0.0,
+        "max_holding_minutes": float(holding_minutes.max()) if len(holding_minutes) else 0.0,
         "average_win": float(winners.mean()) if len(winners) else 0.0,
         "average_loss": float(losers.mean()) if len(losers) else 0.0,
         "max_consecutive_losses": _max_consecutive_losses(pnl.tolist()),
