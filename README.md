@@ -44,7 +44,15 @@ python -m pip install -e '.[dev]'
 pytest
 ```
 
-The initial implementation will use local CSV data so the backtest can be reproduced independently of an exchange API. Expected candle columns: `timestamp, open, high, low, close, volume`; timestamps must be UTC and consistently represent candle open times. Funding data can be supplied separately or in an extended dataset.
+The initial implementation uses local CSV data so the backtest can be reproduced independently of an exchange API. Expected candle columns: `timestamp, open, high, low, close, volume`; timestamps must be UTC and consistently represent candle open times. An optional `funding_rate` column is interpreted as the rate applied at that bar's timestamp; positive rates are paid by longs and received by shorts. Confirm the source exchange's funding timestamp and sign convention before interpreting results.
+
+Run a baseline backtest:
+
+```bash
+btc-perp-backtest --input data/btc_perp_1m.csv --output-dir backtest-output
+```
+
+The command writes `trades.csv`, `equity_curve.csv`, and `summary.json`. Default parameters are a starting point for research, not optimized settings.
 
 ## Safety and research rules
 
