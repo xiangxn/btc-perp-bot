@@ -37,3 +37,27 @@ def test_no_signal_means_no_trades():
     result = run_backtest(bars, signals)
     assert result["summary"]["trade_count"] == 0
     assert result["summary"]["final_equity"] == 300
+
+def test_stop_can_be_hit_during_entry_bar():
+    bars = make_bars()
+    bars.loc[bars.index[2], "low"] = 97.0
+    signals = pd.DataFrame({"signal": [1], "atr": [2.0]}, index=[bars.index[1]])
+    result = run_backtest(bars, signals, BacktestConfig(
+        initial_equity=300, risk_fraction=0.005, fee_rate=0.001,
+        slippage_bps=0, stop_atr_multiple=1, target_r_multiple=2,
+    ))
+    trade = result["trades"].iloc[0]
+    assert trade["exit_reason"] == "stop"
+    assert trade["exit_time"] == bars.index[2]
+    assert trade["exit_price"] == trade["stop_price"]
+
+
+def test_equity_curve_has_mark_to_market_and_cash_equity():
+    bars = make_bars()
+    signals = pd.DataFrame({"signal": [1], "atr": [2.0]}, index=[bars.index[1]])
+    result = run_backtest(bars, signals, BacktestConfig(
+        initial_equity=300, risk_fraction=0.005, fee_rate=0.001,
+        slippage_bps=0, stop_atr_multiple=10, target_r_multiple=None,
+    ))
+    assert "cash_equity" in result["equity_curve"].columns
+    assert "equity" in result["equity_curve"].columns
