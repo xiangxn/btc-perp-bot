@@ -51,13 +51,15 @@ def compare_exit_policies(
 ) -> pd.DataFrame:
     """Compare fixed 2R exits with trend-regime exits on the same data and costs.
 
-    This is a descriptive experiment, not an optimizer. The fixed-target variant disables
-    trend exits; the trend variant disables fixed targets and exits when the aligned trend
-    regime no longer supports the position. All other configuration values remain unchanged.
+    This is a descriptive experiment, not an optimizer. It crosses ATR/structural stops with
+    fixed 2R/trend-regime exits. The structural stop comes from the prior 12-candle breakout
+    range reference carried in the event data. All other configuration values remain unchanged.
     """
     variants = {
-        "fixed_2R": replace(config, target_r_multiple=2.0, trend_exit_enabled=False),
-        "trend_exit": replace(config, target_r_multiple=None, trend_exit_enabled=True),
+        "atr_fixed_2R": replace(config, stop_mode="atr", target_r_multiple=2.0, trend_exit_enabled=False),
+        "atr_trend_exit": replace(config, stop_mode="atr", target_r_multiple=None, trend_exit_enabled=True),
+        "structural_fixed_2R": replace(config, stop_mode="structural", target_r_multiple=2.0, trend_exit_enabled=False),
+        "structural_trend_exit": replace(config, stop_mode="structural", target_r_multiple=None, trend_exit_enabled=True),
     }
     rows: list[dict] = []
     for name, variant_config in variants.items():
@@ -85,8 +87,10 @@ def evaluate_chronological_splits(
     )
     rows: list[dict] = []
     policy_configs = {
-        "fixed_2R": replace(config, target_r_multiple=2.0, trend_exit_enabled=False),
-        "trend_exit": replace(config, target_r_multiple=None, trend_exit_enabled=True),
+        "atr_fixed_2R": replace(config, stop_mode="atr", target_r_multiple=2.0, trend_exit_enabled=False),
+        "atr_trend_exit": replace(config, stop_mode="atr", target_r_multiple=None, trend_exit_enabled=True),
+        "structural_fixed_2R": replace(config, stop_mode="structural", target_r_multiple=2.0, trend_exit_enabled=False),
+        "structural_trend_exit": replace(config, stop_mode="structural", target_r_multiple=None, trend_exit_enabled=True),
     }
     for split_name, split_bars in splits.items():
         start = split_bars.index[0]
