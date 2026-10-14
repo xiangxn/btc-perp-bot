@@ -107,9 +107,9 @@ def to_execution_events(signals_5m: pd.DataFrame) -> pd.DataFrame:
     """Convert 5m candle-close signals to backtest events indexed by availability time.
 
     The input index must contain 5m candle-open timestamps. Events are shifted to the
-    corresponding candle close (open + 5 minutes); that timestamp is also the next 1m candle
-    open when the data is aligned to UTC minute boundaries. ATR and optional structural stop
-    references are attached to the event.
+    corresponding candle close (open + 5 minutes). The backtest waits until the following 1m
+    bar open before execution to avoid assuming a zero-latency fill at the event timestamp.
+    ATR and optional structural stop references are attached to the event.
     """
     required = {"open", "high", "low", "close", "volume", "signal"}
     missing = required.difference(signals_5m.columns)
@@ -170,7 +170,7 @@ def apply_1m_execution_filter(
         if side == 0:
             continue
         history = bars_1m.loc[bars_1m.index < event_ts]
-        future = bars_1m.loc[bars_1m.index >= event_ts]
+        future = bars_1m.loc[bars_1m.index > event_ts]
         if len(history) < max(14, impulse_lookback + 1) or future.empty:
             filtered.loc[event_ts, "signal"] = 0
             filtered.loc[event_ts, "filter_reason"] = "insufficient_warmup_or_execution_bar"
