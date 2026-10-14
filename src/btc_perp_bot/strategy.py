@@ -121,6 +121,9 @@ def to_execution_events(signals_5m: pd.DataFrame) -> pd.DataFrame:
     events = pd.DataFrame(index=signals_5m.index + pd.Timedelta(minutes=5))
     events["signal"] = signals_5m["signal"].astype("int8").to_numpy()
     events["atr"] = atr(signals_5m, 14).to_numpy()
+    if {"trend_long", "trend_short"}.issubset(signals_5m.columns):
+        events["exit_long"] = ~signals_5m["trend_long"].fillna(False).astype(bool).to_numpy()
+        events["exit_short"] = ~signals_5m["trend_short"].fillna(False).astype(bool).to_numpy()
     events.index.name = "timestamp"
     return events
 
