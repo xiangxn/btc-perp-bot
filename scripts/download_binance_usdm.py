@@ -81,7 +81,7 @@ def download_klines(start_ms: int, end_ms: int) -> pd.DataFrame:
         time.sleep(0.15)
     print()
     columns = ["open_time", "open", "high", "low", "close", "volume"]
-    frame = pd.DataFrame(rows, columns=columns)
+    frame = pd.DataFrame([row[:6] for row in rows], columns=columns)
     if frame.empty:
         raise RuntimeError("No candles returned for the requested range")
     frame["timestamp"] = pd.to_datetime(frame.pop("open_time"), unit="ms", utc=True)
@@ -140,7 +140,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     bars.rename_axis("timestamp").to_csv(output, date_format="%Y-%m-%dT%H:%M:%SZ")
     print(f"Wrote {len(bars):,} candles to {output}")
-    print(f"Funding settlements aligned to candles: {int((bars["funding_rate"] != 0).sum()):,}")
+    print(f"Funding settlements aligned to candles: {int((bars['funding_rate'] != 0).sum()):,}")
 
 
 if __name__ == "__main__":
