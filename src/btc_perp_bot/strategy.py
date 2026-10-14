@@ -160,7 +160,7 @@ def apply_1m_execution_filter(
         if side == 0:
             continue
         history = bars_1m.loc[bars_1m.index < event_ts]
-        future = bars_1m.loc[bars_1m.index > event_ts]
+        future = bars_1m.loc[bars_1m.index >= event_ts]
         if len(history) < max(14, impulse_lookback + 1) or future.empty:
             filtered.loc[event_ts, "signal"] = 0
             filtered.loc[event_ts, "filter_reason"] = "insufficient_warmup_or_execution_bar"
