@@ -107,8 +107,9 @@ def to_execution_events(signals_5m: pd.DataFrame) -> pd.DataFrame:
     """Convert 5m candle-close signals to backtest events indexed by availability time.
 
     The input index must contain 5m candle-open timestamps. Events are shifted to the
-    corresponding candle close (open + 5 minutes); the backtest engine then waits for its
-    next executable 1m bar. ATR is calculated on 5m candles and attached to the event.
+    corresponding candle close (open + 5 minutes); that timestamp is also the next 1m candle
+    open when the data is aligned to UTC minute boundaries. ATR and optional structural stop
+    references are attached to the event.
     """
     required = {"open", "high", "low", "close", "volume", "signal"}
     missing = required.difference(signals_5m.columns)
