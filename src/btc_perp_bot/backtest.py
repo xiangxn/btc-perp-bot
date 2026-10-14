@@ -23,7 +23,6 @@ class BacktestConfig:
     max_notional_leverage: float = 2.0
     max_holding_bars: int | None = None
     trend_exit_enabled: bool = False
-    intrabar_policy: Literal["adverse", "stop_first"] = "adverse"
 
     def __post_init__(self) -> None:
         if self.initial_equity <= 0:
@@ -48,7 +47,7 @@ def run_backtest(
     bars_1m: pd.DataFrame,
     signals: pd.DataFrame,
     config: BacktestConfig = BacktestConfig(),
-) -> dict[str, pd.DataFrame | dict[str, float | int]]:
+) -> dict[str, pd.DataFrame | dict[str, float | int | None]]:
     """Run a single-position long/short backtest.
 
     ``signals`` is indexed by UTC timestamps when a signal is known (after the source candle
@@ -301,7 +300,7 @@ def run_backtest(
     return {"trades": trades_frame, "equity_curve": equity_frame, "summary": summary}
 
 
-def _summarize(trades: pd.DataFrame, curve: pd.DataFrame, initial_equity: float, final_equity: float) -> dict[str, float | int]:
+def _summarize(trades: pd.DataFrame, curve: pd.DataFrame, initial_equity: float, final_equity: float) -> dict[str, float | int | None]:
     pnl = trades["net_pnl"] if not trades.empty else pd.Series(dtype=float)
     winners = pnl[pnl > 0]
     losers = pnl[pnl < 0]
