@@ -197,34 +197,38 @@ def run_backtest(
                 side = int(event["signal"])
                 entry_raw = float(bar["open"])
                 entry_fill = entry_raw * (1 + slippage_rate if side == 1 else 1 - slippage_rate)
+                valid_stop = True
                 if config.stop_mode == "structural":
                     structural_stop = event.get("structural_stop")
                     if structural_stop is None or pd.isna(structural_stop):
-                        continue
-                    stop = float(structural_stop)
-                    stop_distance = side * (entry_fill - stop)
-                    if stop_distance <= 0:
-                        continue
+                        valid_stop = False
+                        stop = entry_fill
+                        stop_distance = 0.0
+                    else:
+                        stop = float(structural_stop)
+                        stop_distance = side * (entry_fill - stop)
+                        valid_stop = stop_distance > 0
                 else:
                     stop_distance = float(event["atr"]) * config.stop_atr_multiple
                     stop = entry_fill - side * stop_distance
-                target = (entry_fill + side * stop_distance * config.target_r_multiple
-                          if config.target_r_multiple is not None else None)
-                risk_cash = equity * config.risk_fraction
-                # Budget round-trip entry fee conservatively in sizing; slippage is already
-                # reflected in fills but stop-gap loss can still exceed this risk budget.
-                per_unit_risk = stop_distance + entry_fill * config.fee_rate * 2
-                qty_by_risk = risk_cash / per_unit_risk
-                qty_by_notional = equity * config.max_notional_leverage / entry_fill
-                qty = min(qty_by_risk, qty_by_notional)
-                if qty > 0:
-                    entry_fee = abs(entry_fill * qty) * config.fee_rate
-                    equity -= entry_fee
-                    position = {
-                        "side": side, "qty": qty, "entry_ts": ts, "entry_i": i,
-                        "entry_fill": entry_fill, "entry_fee": entry_fee, "stop": stop,
-                        "target": target, "funding": 0.0,
-                    }
+                if valid_stop:
+                    target = (entry_fill + side * stop_distance * config.target_r_multiple
+                              if config.target_r_multiple is not None else None)
+                    risk_cash = equity * config.risk_fraction
+                    # Budget round-trip entry fee conservatively in sizing; slippage is already
+                    # reflected in fills but stop-gap loss can still exceed this risk budget.
+                    per_unit_risk = stop_distance + entry_fill * config.fee_rate * 2
+                    qty_by_risk = risk_cash / per_unit_risk
+                    qty_by_notional = equity * config.max_notional_leverage / entry_fill
+                    qty = min(qty_by_risk, qty_by_notional)
+                    if qty > 0:
+                        entry_fee = abs(entry_fill * qty) * config.fee_rate
+                        equity -= entry_fee
+                        position = {
+                            "side": side, "qty": qty, "entry_ts": ts, "entry_i": i,
+                            "entry_fill": entry_fill, "entry_fee": entry_fee, "stop": stop,
+                            "target": target, "funding": 0.0,
+                        }
 
         # Entry occurs at this bar open, so the remainder of the same bar can hit its stop/target.
         # If both are touched, use the adverse stop outcome because OHLC cannot reveal the path.
