@@ -37,5 +37,5 @@ def test_exit_comparison_reports_both_variants():
         "exit_long": np.zeros(30, dtype=bool), "exit_short": np.zeros(30, dtype=bool),
     }, index=frame.index)
     result = compare_exit_policies(frame, events, BacktestConfig())
-    assert set(result.index) == {"fixed_2R", "trend_exit"}
+    assert set(result.index) == {"atr_fixed_2R", "atr_trend_exit", "structural_fixed_2R", "structural_trend_exit"}
     assert (result["trade_count"] == 0).all()
