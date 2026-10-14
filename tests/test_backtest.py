@@ -77,3 +77,18 @@ def test_trend_exit_executes_at_event_bar_open():
     assert trade["exit_reason"] == "trend_exit"
     assert trade["exit_time"] == bars.index[3]
     assert trade["exit_price"] == bars.loc[bars.index[3], "open"]
+
+def test_structural_stop_uses_event_reference():
+    bars = make_bars()
+    bars.loc[bars.index[2], "low"] = 98.5
+    signals = pd.DataFrame({
+        "signal": [1], "atr": [2.0], "structural_stop": [99.0],
+    }, index=[bars.index[1]])
+    result = run_backtest(bars, signals, BacktestConfig(
+        initial_equity=300, risk_fraction=0.005, fee_rate=0,
+        slippage_bps=0, stop_mode="structural", target_r_multiple=None,
+    ))
+    trade = result["trades"].iloc[0]
+    assert trade["stop_price"] == 99.0
+    assert trade["exit_reason"] == "stop"
+    assert trade["exit_price"] == 99.0
