@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--adx-min", type=float, default=20.0)
     parser.add_argument("--max-chase-atr", type=float, default=0.25, help="Reject entry if it has chased beyond this multiple of 5m ATR")
     parser.add_argument("--opposing-impulse-atr", type=float, default=1.0, help="Reject entry if recent opposing 1m impulse exceeds this multiple of 1m ATR")
+    parser.add_argument("--stop-mode", choices=["atr", "structural"], default="atr")
     parser.add_argument("--target-r", type=float, default=2.0, help="Set 0 to disable fixed target")
     args = parser.parse_args()
 
@@ -56,6 +57,7 @@ def main() -> None:
         daily_loss_limit_fraction=args.daily_loss_limit,
         fee_rate=args.fee_rate,
         slippage_bps=args.slippage_bps,
+        stop_mode=args.stop_mode,
         target_r_multiple=args.target_r if args.target_r > 0 else None,
     )
     result = run_backtest(bars_1m, events, backtest_config)
