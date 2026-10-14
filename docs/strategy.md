@@ -9,7 +9,7 @@ This is the first research baseline, not a claim of profitability. It uses a 15m
 1. **15m regime:** long bias when EMA20 > EMA50, EMA20 is rising versus its previous completed value, and ADX(14) >= the configured threshold. Short bias is symmetric.
 2. **5m trigger:** long when the completed 5m close breaks above the highest high of the preceding 12 completed 5m candles; short when it breaks below the preceding 12-candle low. The current candle is excluded from the lookback.
 3. **1m execution filter:** reject entries if the next executable 1m open is more than 0.25 × 5m ATR beyond the breakout level, or if the most recent 3 completed 1m candles show an opposing close-to-close impulse larger than 1.0 × 1m ATR(14). Reject signals when the necessary warm-up data is unavailable. These are baseline thresholds only and must be tested out-of-sample.
-4. **Execution timing:** a signal is known only after its candle closes. The earliest simulated entry is the next executable 1m bar, with adverse slippage and fees.
+4. **Execution timing:** a signal is known only after its candle closes. With candle-open timestamps, the event timestamp equals the open of the next 1m bar; execution occurs at that bar open with adverse slippage and fees. No prior bar can use the signal.
 
 ## Risk and exits
 
@@ -18,7 +18,7 @@ This is the first research baseline, not a claim of profitability. It uses a 15m
 - Daily loss lockout: 1.5% of start-of-day equity. No new entries after the limit is reached.
 - At most one directional position; no martingale and no adding to a losing position.
 - Compare structural stops with ATR-based stops as separate variants.
-- Compare fixed 2R take-profit with a trend-following exit as separate variants.
+- Compare fixed 2R take-profit with a trend-following exit (exit at the next executable 1m open when the 15m trend regime no longer supports the position) as separate variants.
 - Stop gaps must fill at the next realistically executable price, not magically at the stop price.
 - If stop and target are both touched in one candle and lower-resolution data cannot disambiguate order, use the adverse assumption or flag the trade as ambiguous.
 
