@@ -103,7 +103,34 @@ def run_backtest(
             equity += funding_cashflow
             position["funding"] += funding_cashflow
 
-        # Check exits against this bar only for positions carried into the bar.
+        # A trend-exit event is known at this timestamp and can execute at this bar open.
+        event_now = signal_map.get(ts)
+        if position is not None and event_now is not None:
+            should_exit = (
+                position["side"] == 1 and bool(event_now.get("exit_long", False))
+            ) or (
+                position["side"] == -1 and bool(event_now.get("exit_short", False))
+            )
+            if should_exit:
+                side = position["side"]
+                raw_exit = float(bar["open"])
+                exit_fill = raw_exit * (1 - slippage_rate if side == 1 else 1 + slippage_rate)
+                exit_fee = abs(exit_fill * position["qty"]) * config.fee_rate
+                gross = side * (exit_fill - position["entry_fill"]) * position["qty"]
+                equity += gross - exit_fee
+                trades.append({
+                    "entry_time": position["entry_ts"], "exit_time": ts,
+                    "side": "long" if side == 1 else "short", "qty": position["qty"],
+                    "entry_price": position["entry_fill"], "exit_price": exit_fill,
+                    "stop_price": position["stop"], "target_price": position["target"],
+                    "gross_pnl": gross, "entry_fee": position["entry_fee"], "exit_fee": exit_fee,
+                    "funding": position["funding"],
+                    "net_pnl": gross - position["entry_fee"] - exit_fee + position["funding"],
+                    "exit_reason": "trend_exit",
+                })
+                position = None
+
+        # Check stop/target against this bar for positions carried into the bar.
         if position is not None and ts > position["entry_ts"]:
             stop_hit = (bar["low"] <= position["stop"] if position["side"] == 1
                         else bar["high"] >= position["stop"])
@@ -155,14 +182,13 @@ def run_backtest(
                 })
                 position = None
 
-        # A signal timestamp means information became available then; enter no earlier than next bar.
-        # Use previous timestamp's signal so a bar cannot fill using a signal revealed at its own close.
+        # Signal timestamps denote when the completed candle became available. With candle-open
+        # timestamps, an event at ts may execute at this bar open, never at the prior bar close.
         # Re-evaluate realized loss before opening a new position.
         if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
             daily_locked = True
-        if position is None and not daily_locked and i > 0:
-            previous_ts = bars_1m.index[i - 1]
-            event = signal_map.get(previous_ts)
+        if position is None and not daily_locked:
+            event = signal_map.get(ts)
             if event and int(event["signal"]) != 0 and pd.notna(event["atr"]) and float(event["atr"]) > 0:
                 side = int(event["signal"])
                 entry_raw = float(bar["open"])
