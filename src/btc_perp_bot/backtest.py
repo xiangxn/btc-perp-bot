@@ -21,6 +21,7 @@ class BacktestConfig:
     target_r_multiple: float | None = 2.0
     max_notional_leverage: float = 2.0
     max_holding_bars: int | None = None
+    trend_exit_enabled: bool = False
     intrabar_policy: Literal["adverse", "stop_first"] = "adverse"
 
     def __post_init__(self) -> None:
@@ -105,7 +106,7 @@ def run_backtest(
 
         # A trend-exit event is known at this timestamp and can execute at this bar open.
         event_now = signal_map.get(ts)
-        if position is not None and event_now is not None:
+        if position is not None and event_now is not None and config.trend_exit_enabled:
             should_exit = (
                 position["side"] == 1 and bool(event_now.get("exit_long", False))
             ) or (
