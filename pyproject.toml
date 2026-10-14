@@ -9,6 +9,9 @@ description = "Research-first BTC perpetual futures strategy and backtesting too
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "pandas>=2.1"]
 
+[project.scripts]
+btc-perp-backtest = "btc_perp_bot.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
