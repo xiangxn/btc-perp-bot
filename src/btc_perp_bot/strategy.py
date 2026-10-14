@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from btc_perp_bot.indicators import adx, ema
+from btc_perp_bot.indicators import adx, atr, ema
 
 
 @dataclass(frozen=True)
@@ -102,3 +102,24 @@ def _validate_bars(frame: pd.DataFrame, timeframe: str) -> None:
         raise ValueError(f"{timeframe} bar has high below another OHLC value")
     if (frame["low"] > frame[["open", "close", "high"]].min(axis=1)).any():
         raise ValueError(f"{timeframe} bar has low above another OHLC value")
+
+def to_execution_events(signals_5m: pd.DataFrame) -> pd.DataFrame:
+    """Convert 5m candle-close signals to backtest events indexed by availability time.
+
+    The input index must contain 5m candle-open timestamps. Events are shifted to the
+    corresponding candle close (open + 5 minutes); the backtest engine then waits for its
+    next executable 1m bar. ATR is calculated on 5m candles and attached to the event.
+    """
+    required = {"open", "high", "low", "close", "volume", "signal"}
+    missing = required.difference(signals_5m.columns)
+    if missing:
+        raise ValueError(f"5m signals missing columns: {sorted(missing)}")
+    if not isinstance(signals_5m.index, pd.DatetimeIndex) or signals_5m.index.tz is None:
+        raise ValueError("5m signals must use a timezone-aware DatetimeIndex")
+    if not signals_5m.index.is_monotonic_increasing or signals_5m.index.has_duplicates:
+        raise ValueError("5m signal timestamps must be sorted and unique")
+    events = pd.DataFrame(index=signals_5m.index + pd.Timedelta(minutes=5))
+    events["signal"] = signals_5m["signal"].astype("int8").to_numpy()
+    events["atr"] = atr(signals_5m, 14).to_numpy()
+    events.index.name = "timestamp"
+    return events
