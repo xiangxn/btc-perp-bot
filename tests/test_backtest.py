@@ -61,3 +61,19 @@ def test_equity_curve_has_mark_to_market_and_cash_equity():
     ))
     assert "cash_equity" in result["equity_curve"].columns
     assert "equity" in result["equity_curve"].columns
+
+def test_trend_exit_executes_at_event_bar_open():
+    bars = make_bars()
+    signals = pd.DataFrame({
+        "signal": [1, 0], "atr": [2.0, 2.0],
+        "exit_long": [False, True], "exit_short": [False, False],
+    }, index=[bars.index[1], bars.index[3]])
+    result = run_backtest(bars, signals, BacktestConfig(
+        initial_equity=300, risk_fraction=0.005, fee_rate=0,
+        slippage_bps=0, stop_atr_multiple=10, target_r_multiple=None,
+        trend_exit_enabled=True,
+    ))
+    trade = result["trades"].iloc[0]
+    assert trade["exit_reason"] == "trend_exit"
+    assert trade["exit_time"] == bars.index[3]
+    assert trade["exit_price"] == bars.loc[bars.index[3], "open"]
