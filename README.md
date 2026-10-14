@@ -24,7 +24,7 @@ The aspirational 1,000x capital goal is not a performance assumption or guarante
 2. Implement and test indicators and the baseline breakout strategy.
 3. Compare ATR vs structural stops and fixed 2R vs trend-regime exits as four separate variants.
 4. Run cost-aware backtests with chronological train/validation/test splits.
-5. Review net PnL, max drawdown, Profit Factor, win/loss distribution, losing streaks, fee share, and long/short breakdown.
+5. Review net PnL, max drawdown, Profit Factor, win/loss distribution, expectancy, holding time, losing streaks, fee share, and long/short breakdown.
 6. Paper trade; only then consider a tightly limited live pilot.
 
 ## Repository layout
