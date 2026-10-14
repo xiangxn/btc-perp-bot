@@ -8,6 +8,7 @@ from pathlib import Path
 
 from btc_perp_bot.backtest import BacktestConfig, run_backtest
 from btc_perp_bot.data import load_ohlcv_csv, resample_ohlcv
+from btc_perp_bot.validation import compare_exit_policies, evaluate_chronological_splits
 from btc_perp_bot.strategy import (
     StrategyConfig,
     apply_1m_execution_filter,
@@ -58,10 +59,14 @@ def main() -> None:
         target_r_multiple=args.target_r if args.target_r > 0 else None,
     )
     result = run_backtest(bars_1m, events, backtest_config)
+    exit_comparison = compare_exit_policies(bars_1m, events, backtest_config)
+    split_comparison = evaluate_chronological_splits(bars_1m, events, backtest_config)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     result["trades"].to_csv(output_dir / "trades.csv", index=False)
     result["equity_curve"].to_csv(output_dir / "equity_curve.csv")
+    exit_comparison.to_csv(output_dir / "exit_policy_comparison.csv")
+    split_comparison.to_csv(output_dir / "chronological_split_comparison.csv")
     (output_dir / "summary.json").write_text(
         json.dumps(result["summary"], indent=2, allow_nan=False), encoding="utf-8"
     )
