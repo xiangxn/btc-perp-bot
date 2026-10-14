@@ -52,7 +52,7 @@ Run a baseline backtest:
 btc-perp-backtest --input data/btc_perp_1m.csv --output-dir backtest-output
 ```
 
-The command writes `trades.csv`, `equity_curve.csv`, and `summary.json`. Default parameters are a starting point for research, not optimized settings.
+The command writes `trades.csv`, `equity_curve.csv`, `summary.json`, `exit_policy_comparison.csv` (fixed 2R versus trend-regime exit), and `chronological_split_comparison.csv` (chronological 60% train / 20% validation / 20% test, each evaluated independently). The test split must remain untouched during parameter selection. Default parameters are a starting point for research, not optimized settings.
 
 ## Safety and research rules
 
