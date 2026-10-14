@@ -8,7 +8,7 @@ Research-first automated trading system for BTC perpetual futures.
 ## Initial scope
 
 - Strategy B only: trend-following breakout baseline.
-- Timeframes: 15m trend filter, 5m breakout signal, 1m execution/chase filter.
+- Timeframes: 15m trend filter, 5m breakout signal, 1m execution/chase filter (default: 0.25 × 5m ATR chase cap and 1.0 × 1m ATR opposing impulse threshold).
 - Start capital for simulations: 300 USDT.
 - Per-trade risk budget: 0.5% of current equity, subject to exchange constraints and minimum order sizes.
 - Daily loss lockout: 1.5% of the day's starting equity.
