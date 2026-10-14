@@ -84,6 +84,7 @@ def run_backtest(
     slippage_rate = config.slippage_bps / 10_000.0
 
     for i, (ts, bar) in enumerate(bars_1m.iterrows()):
+        position_at_bar_start = position is not None
         day = ts.date()
         if day != current_day:
             current_day = day
@@ -191,7 +192,7 @@ def run_backtest(
         # Re-evaluate realized loss before opening a new position.
         if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
             daily_locked = True
-        if position is None and not daily_locked:
+        if position is None and not daily_locked and not position_at_bar_start:
             event = event_now
             if event and int(event["signal"]) != 0 and pd.notna(event["atr"]) and float(event["atr"]) > 0:
                 side = int(event["signal"])
