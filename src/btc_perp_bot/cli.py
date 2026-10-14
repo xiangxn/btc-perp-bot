@@ -26,6 +26,8 @@ def main() -> None:
     parser.add_argument("--fee-rate", type=float, default=0.0005, help="Fee per side as a decimal fraction")
     parser.add_argument("--slippage-bps", type=float, default=2.0)
     parser.add_argument("--adx-min", type=float, default=20.0)
+    parser.add_argument("--max-chase-atr", type=float, default=0.25, help="Reject entry if it has chased beyond this multiple of 5m ATR")
+    parser.add_argument("--opposing-impulse-atr", type=float, default=1.0, help="Reject entry if recent opposing 1m impulse exceeds this multiple of 1m ATR")
     parser.add_argument("--target-r", type=float, default=2.0, help="Set 0 to disable fixed target")
     args = parser.parse_args()
 
@@ -40,7 +42,13 @@ def main() -> None:
     strategy_config = StrategyConfig(adx_min=args.adx_min)
     signals_5m = generate_signals(bars_5m, bars_15m, strategy_config)
     events = to_execution_events(signals_5m)
-    events = apply_1m_execution_filter(events, bars_1m, signals_5m)
+    events = apply_1m_execution_filter(
+        events,
+        bars_1m,
+        signals_5m,
+        max_chase_atr=args.max_chase_atr,
+        opposing_impulse_atr=args.opposing_impulse_atr,
+    )
     backtest_config = BacktestConfig(
         initial_equity=args.initial_equity,
         risk_fraction=args.risk_fraction,
