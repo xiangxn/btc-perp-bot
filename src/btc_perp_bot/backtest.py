@@ -18,6 +18,7 @@ class BacktestConfig:
     fee_rate: float = 0.0005
     slippage_bps: float = 2.0
     stop_atr_multiple: float = 1.5
+    stop_mode: Literal["atr", "structural"] = "atr"
     target_r_multiple: float | None = 2.0
     max_notional_leverage: float = 2.0
     max_holding_bars: int | None = None
@@ -33,6 +34,8 @@ class BacktestConfig:
             raise ValueError("daily_loss_limit_fraction must be between 0 and 1")
         if self.fee_rate < 0 or self.slippage_bps < 0:
             raise ValueError("fees and slippage cannot be negative")
+        if self.stop_mode not in ("atr", "structural"):
+            raise ValueError("stop_mode must be atr or structural")
         if self.stop_atr_multiple <= 0 or self.max_notional_leverage <= 0:
             raise ValueError("stop multiple and leverage cap must be positive")
         if self.target_r_multiple is not None and self.target_r_multiple <= 0:
@@ -194,8 +197,17 @@ def run_backtest(
                 side = int(event["signal"])
                 entry_raw = float(bar["open"])
                 entry_fill = entry_raw * (1 + slippage_rate if side == 1 else 1 - slippage_rate)
-                stop_distance = float(event["atr"]) * config.stop_atr_multiple
-                stop = entry_fill - side * stop_distance
+                if config.stop_mode == "structural":
+                    structural_stop = event.get("structural_stop")
+                    if structural_stop is None or pd.isna(structural_stop):
+                        continue
+                    stop = float(structural_stop)
+                    stop_distance = side * (entry_fill - stop)
+                    if stop_distance <= 0:
+                        continue
+                else:
+                    stop_distance = float(event["atr"]) * config.stop_atr_multiple
+                    stop = entry_fill - side * stop_distance
                 target = (entry_fill + side * stop_distance * config.target_r_multiple
                           if config.target_r_multiple is not None else None)
                 risk_cash = equity * config.risk_fraction
