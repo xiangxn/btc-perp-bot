@@ -123,3 +123,68 @@ def to_execution_events(signals_5m: pd.DataFrame) -> pd.DataFrame:
     events["atr"] = atr(signals_5m, 14).to_numpy()
     events.index.name = "timestamp"
     return events
+
+def apply_1m_execution_filter(
+    events: pd.DataFrame,
+    bars_1m: pd.DataFrame,
+    signals_5m: pd.DataFrame,
+    *,
+    max_chase_atr: float = 0.25,
+    opposing_impulse_atr: float = 1.0,
+    impulse_lookback: int = 3,
+) -> pd.DataFrame:
+    """Reject 5m signals that are overextended or face a strong opposing 1m impulse.
+
+    ``events`` comes from :func:`to_execution_events`. Only 1m candles completed by the event
+    timestamp are used for the impulse calculation. The prospective entry open is read from
+    the first 1m candle strictly after the event timestamp, matching the backtest's conservative
+    next-bar execution convention. The filter rejects rather than guesses when warm-up data is
+    unavailable. Thresholds are configurable research parameters, not optimized values.
+    """
+    if max_chase_atr < 0 or opposing_impulse_atr < 0 or impulse_lookback < 1:
+        raise ValueError("filter thresholds must be nonnegative and lookback must be positive")
+    if not isinstance(bars_1m.index, pd.DatetimeIndex) or bars_1m.index.tz is None:
+        raise ValueError("bars_1m must use a timezone-aware DatetimeIndex")
+    if not {"prior_high", "prior_low"}.issubset(signals_5m.columns):
+        raise ValueError("signals_5m must contain prior_high and prior_low")
+    filtered = events.copy()
+    filtered["filter_reason"] = ""
+    atr_1m = atr(bars_1m, 14)
+    levels = signals_5m[["prior_high", "prior_low"]].copy()
+    levels.index = levels.index + pd.Timedelta(minutes=5)
+    for event_ts, event in filtered.iterrows():
+        side = int(event["signal"])
+        if side == 0:
+            continue
+        history = bars_1m.loc[bars_1m.index < event_ts]
+        future = bars_1m.loc[bars_1m.index > event_ts]
+        if len(history) < max(14, impulse_lookback + 1) or future.empty:
+            filtered.loc[event_ts, "signal"] = 0
+            filtered.loc[event_ts, "filter_reason"] = "insufficient_warmup_or_execution_bar"
+            continue
+        atr5 = float(event["atr"]) if pd.notna(event["atr"]) else float("nan")
+        atr1 = float(atr_1m.loc[history.index[-1]])
+        if not pd.notna(atr5) or atr5 <= 0 or not pd.notna(atr1) or atr1 <= 0:
+            filtered.loc[event_ts, "signal"] = 0
+            filtered.loc[event_ts, "filter_reason"] = "invalid_atr"
+            continue
+        level_row = levels.loc[event_ts] if event_ts in levels.index else None
+        if level_row is None:
+            filtered.loc[event_ts, "signal"] = 0
+            filtered.loc[event_ts, "filter_reason"] = "missing_breakout_level"
+            continue
+        level = float(level_row["prior_high"] if side == 1 else level_row["prior_low"])
+        execution_open = float(future.iloc[0]["open"])
+        chase_distance = max(0.0, side * (execution_open - level)) / atr5
+        closes = history["close"].astype(float)
+        impulse = float(closes.iloc[-1] - closes.iloc[-1 - impulse_lookback])
+        opposing = side * impulse < -opposing_impulse_atr * atr1
+        if chase_distance > max_chase_atr:
+            filtered.loc[event_ts, "signal"] = 0
+            filtered.loc[event_ts, "filter_reason"] = "chase_limit"
+        elif opposing:
+            filtered.loc[event_ts, "signal"] = 0
+            filtered.loc[event_ts, "filter_reason"] = "opposing_1m_impulse"
+        else:
+            filtered.loc[event_ts, "filter_reason"] = "accepted"
+    return filtered
