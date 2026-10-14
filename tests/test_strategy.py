@@ -10,6 +10,7 @@ def test_5m_signal_is_shifted_to_candle_close():
     bars = pd.DataFrame({
         "open": close - 0.1, "high": close + 0.5, "low": close - 0.5,
         "close": close, "volume": np.ones(20), "signal": np.zeros(20, dtype="int8"),
+        "trend_long": np.ones(20, dtype=bool), "trend_short": np.zeros(20, dtype=bool),
     }, index=index)
     bars.iloc[-1, bars.columns.get_loc("signal")] = 1
     events = to_execution_events(bars)
