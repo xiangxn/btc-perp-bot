@@ -77,7 +77,6 @@ def run_backtest(
     trades: list[dict] = []
     equity_rows: list[dict] = []
     slippage_rate = config.slippage_bps / 10_000.0
-    signal_times = set(signal_map)
 
     for i, (ts, bar) in enumerate(bars_1m.iterrows()):
         day = ts.date()
@@ -141,6 +140,9 @@ def run_backtest(
 
         # A signal timestamp means information became available then; enter no earlier than next bar.
         # Use previous timestamp's signal so a bar cannot fill using a signal revealed at its own close.
+        # Re-evaluate the daily lockout after any exit/funding changes on this bar.
+        if equity <= day_start_equity * (1 - config.daily_loss_limit_fraction):
+            daily_locked = True
         if position is None and not daily_locked and i > 0:
             previous_ts = bars_1m.index[i - 1]
             event = signal_map.get(previous_ts)
