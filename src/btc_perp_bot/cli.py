@@ -8,7 +8,12 @@ from pathlib import Path
 
 from btc_perp_bot.backtest import BacktestConfig, run_backtest
 from btc_perp_bot.data import load_ohlcv_csv, resample_ohlcv
-from btc_perp_bot.strategy import StrategyConfig, generate_signals, to_execution_events
+from btc_perp_bot.strategy import (
+    StrategyConfig,
+    apply_1m_execution_filter,
+    generate_signals,
+    to_execution_events,
+)
 
 
 def main() -> None:
@@ -35,6 +40,7 @@ def main() -> None:
     strategy_config = StrategyConfig(adx_min=args.adx_min)
     signals_5m = generate_signals(bars_5m, bars_15m, strategy_config)
     events = to_execution_events(signals_5m)
+    events = apply_1m_execution_filter(events, bars_1m, signals_5m)
     backtest_config = BacktestConfig(
         initial_equity=args.initial_equity,
         risk_fraction=args.risk_fraction,
