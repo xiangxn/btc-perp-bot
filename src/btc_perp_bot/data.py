@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 OHLCV_COLUMNS = ("open", "high", "low", "close", "volume")
@@ -51,7 +52,7 @@ def validate_ohlcv(frame: pd.DataFrame, *, require_regular_minutes: bool = False
     values = frame[list(OHLCV_COLUMNS)]
     if values.isna().any().any():
         raise ValueError("OHLCV data contains null or non-numeric values")
-    if not values.map(lambda col: col.map(lambda x: abs(float(x)) != float("inf"))).all().all():
+    if not np.isfinite(values.to_numpy(dtype=float)).all():
         raise ValueError("OHLCV data contains infinite values")
     if (frame["volume"] < 0).any():
         raise ValueError("volume cannot be negative")
