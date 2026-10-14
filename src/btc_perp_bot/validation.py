@@ -49,7 +49,7 @@ def compare_exit_policies(
     events: pd.DataFrame,
     config: BacktestConfig = BacktestConfig(),
 ) -> pd.DataFrame:
-    """Compare fixed 2R exits with trend-regime exits on the same data and costs.
+    """Compare four stop/exit combinations on the same data and costs.
 
     This is a descriptive experiment, not an optimizer. It crosses ATR/structural stops with
     fixed 2R/trend-regime exits. The structural stop comes from the prior 12-candle breakout
@@ -76,7 +76,7 @@ def evaluate_chronological_splits(
     train_fraction: float = 0.60,
     validation_fraction: float = 0.20,
 ) -> pd.DataFrame:
-    """Evaluate both exit policies independently on train, validation and test periods.
+    """Evaluate all four stop/exit combinations independently on train, validation and test periods.
 
     Each period starts with the configured initial equity. Events are restricted to that
     period's timestamp interval. The test period must remain untouched during parameter
