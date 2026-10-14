@@ -46,10 +46,21 @@ pytest
 
 The initial implementation uses local CSV data so the backtest can be reproduced independently of an exchange API. Expected candle columns: `timestamp, open, high, low, close, volume`; timestamps must be UTC and consistently represent candle open times. An optional `funding_rate` column is interpreted as the rate applied at that bar's timestamp; positive rates are paid by longs and received by shorts. Confirm the source exchange's funding timestamp and sign convention before interpreting results.
 
+Download public Binance USDⓈ-M BTCUSDT perpetual data (no API key required):
+
+```bash
+python scripts/download_binance_usdm.py \\
+  --start 2025-01-01T00:00:00Z \\
+  --end 2025-04-01T00:00:00Z \\
+  --output data/btcusdt_perp_1m.csv
+```
+
+The end timestamp is exclusive. The downloader writes UTC candle-open timestamps and a `funding_rate` column that is zero except at aligned funding settlements. Verify source alignment and funding sign conventions before relying on results.
+
 Run a baseline backtest:
 
 ```bash
-btc-perp-backtest --input data/btc_perp_1m.csv --output-dir backtest-output
+btc-perp-backtest --input data/btcusdt_perp_1m.csv --output-dir backtest-output
 ```
 
 The command writes `trades.csv`, `equity_curve.csv`, `summary.json`, `exit_policy_comparison.csv` (ATR or structural stop crossed with fixed 2R or trend-regime exit), and `chronological_split_comparison.csv` (chronological 60% train / 20% validation / 20% test, each evaluated independently). The test split must remain untouched during parameter selection. Default parameters are a starting point for research, not optimized settings.
