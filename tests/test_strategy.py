@@ -15,7 +15,7 @@ def test_5m_signal_is_shifted_to_candle_close():
     events = to_execution_events(bars)
     assert events.index[-1] == index[-1] + pd.Timedelta(minutes=5)
     assert events.iloc[-1]["signal"] == 1
-    assert events.columns.tolist() == ["signal", "atr"]
+    assert events.columns.tolist() == ["signal", "atr", "exit_long", "exit_short"]
 
 def test_1m_filter_rejects_overextended_breakout():
     from btc_perp_bot.strategy import apply_1m_execution_filter
