@@ -29,6 +29,9 @@ def test_entry_occurs_after_signal_timestamp_and_costs_are_charged():
     assert trades.iloc[0]["entry_price"] == 100
     assert trades.iloc[0]["entry_fee"] > 0
     assert trades.iloc[0]["net_pnl"] < trades.iloc[0]["gross_pnl"]
+    assert result["summary"]["long_trade_count"] == 1
+    assert result["summary"]["short_trade_count"] == 0
+    assert result["summary"]["average_holding_minutes"] >= 0
 
 
 def test_no_signal_means_no_trades():
