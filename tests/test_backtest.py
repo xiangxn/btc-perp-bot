@@ -25,7 +25,7 @@ def test_entry_occurs_after_signal_timestamp_and_costs_are_charged():
     ))
     trades = result["trades"]
     assert len(trades) == 1
-    assert trades.iloc[0]["entry_time"] == bars.index[1]
+    assert trades.iloc[0]["entry_time"] == bars.index[2]
     assert trades.iloc[0]["entry_price"] == 100
     assert trades.iloc[0]["entry_fee"] > 0
     assert trades.iloc[0]["net_pnl"] < trades.iloc[0]["gross_pnl"]
@@ -40,7 +40,7 @@ def test_no_signal_means_no_trades():
 
 def test_stop_can_be_hit_during_entry_bar():
     bars = make_bars()
-    bars.loc[bars.index[1], "low"] = 97.0
+    bars.loc[bars.index[2], "low"] = 97.0
     signals = pd.DataFrame({"signal": [1], "atr": [2.0]}, index=[bars.index[1]])
     result = run_backtest(bars, signals, BacktestConfig(
         initial_equity=300, risk_fraction=0.005, fee_rate=0.001,
@@ -48,7 +48,7 @@ def test_stop_can_be_hit_during_entry_bar():
     ))
     trade = result["trades"].iloc[0]
     assert trade["exit_reason"] == "stop"
-    assert trade["exit_time"] == bars.index[1]
+    assert trade["exit_time"] == bars.index[2]
     assert trade["exit_price"] == trade["stop_price"]
 
 
@@ -75,12 +75,12 @@ def test_trend_exit_executes_at_event_bar_open():
     ))
     trade = result["trades"].iloc[0]
     assert trade["exit_reason"] == "trend_exit"
-    assert trade["exit_time"] == bars.index[3]
-    assert trade["exit_price"] == bars.loc[bars.index[3], "open"]
+    assert trade["exit_time"] == bars.index[4]
+    assert trade["exit_price"] == bars.loc[bars.index[4], "open"]
 
 def test_structural_stop_uses_event_reference():
     bars = make_bars()
-    bars.loc[bars.index[2], "low"] = 98.5
+    bars.loc[bars.index[3], "low"] = 98.5
     signals = pd.DataFrame({
         "signal": [1], "atr": [2.0], "structural_stop": [99.0],
     }, index=[bars.index[1]])
