@@ -71,7 +71,7 @@ def run_backtest(
     if not signals["signal"].isin([-1, 0, 1]).all():
         raise ValueError("signal values must be -1, 0 or 1")
 
-    signal_map = signals[["signal", "atr"]].to_dict("index")
+    signal_map = signals.to_dict("index")
     equity = float(config.initial_equity)
     day_start_equity = equity
     current_day = None
