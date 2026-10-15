@@ -82,23 +82,22 @@ def _archive_csv(path: str) -> pd.DataFrame:
             if not csv_names:
                 raise RuntimeError(f"No CSV found in archive {url}")
             with archive.open(csv_names[0]) as source:
-                return pd.read_csv(source)
-    return pd.read_csv(io.BytesIO(payload))
+                return pd.read_csv(source, header=None)
+    return pd.read_csv(io.BytesIO(payload), header=None)
+
+
+def _drop_archive_header(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    first = str(frame.iloc[0, 0]).strip().lower()
+    if first in {"open_time", "open time", "calc_time", "fundingtime", "funding_time", "timestamp"}:
+        return frame.iloc[1:].reset_index(drop=True)
+    return frame
 
 
 def _normalise_kline_archive(frame: pd.DataFrame) -> pd.DataFrame:
-    if len(frame.columns) >= 6 and not str(frame.columns[0]).lower().startswith(("open_time", "open time")):
-        # Some historical CSVs are headerless and pandas treats the first data row as headers.
-        frame = pd.read_csv(io.StringIO(frame.to_csv(index=False, header=False)), header=None)
-    if len(frame.columns) >= 6:
-        names = list(frame.columns)
-        if str(names[0]).lower() in {"open_time", "open time"}:
-            pass
-        elif len(names) >= 12:
-            frame.columns = KLINE_COLUMNS[:len(names)]
-        else:
-            frame.columns = KLINE_COLUMNS[:len(names)]
-    else:
+    frame = _drop_archive_header(frame)
+    if len(frame.columns) < 6:
         raise RuntimeError("Unexpected kline archive format")
     frame = frame.iloc[:, :6].copy()
     frame.columns = ["open_time", "open", "high", "low", "close", "volume"]
@@ -177,20 +176,17 @@ def _download_funding_archive(start_ms: int, end_ms: int) -> pd.DataFrame:
         filename = f"BTCUSDT-fundingRate-{month:%Y-%m}.zip"
         path = f"data/futures/um/monthly/fundingRate/BTCUSDT/{filename}"
         try:
-            frame = _archive_csv(path)
+            frame = _drop_archive_header(_archive_csv(path))
         except HTTPError as exc:
             if exc.code == 404:
-                # If a monthly archive is absent, the caller can still run a clearly
-                # documented zero-funding test, but must not treat it as final evidence.
                 print(f"Funding archive not found, skipping {filename}")
                 continue
             raise
-        if frame.empty:
+        if frame.empty or len(frame.columns) < 2:
             continue
-        lower = {str(col).lower(): col for col in frame.columns}
-        time_col = next((lower[k] for k in ("calc_time", "fundingtime", "funding_time", "timestamp") if k in lower), frame.columns[0])
-        rate_col = next((lower[k] for k in ("last_funding_rate", "fundingrate", "funding_rate") if k in lower), frame.columns[-1])
-        frame = frame[[time_col, rate_col]].copy()
+        # Binance Vision funding archives have timestamp and rate columns; tolerate
+        # optional extra columns by taking the first timestamp and final rate column.
+        frame = frame.iloc[:, [0, -1]].copy()
         frame.columns = ["funding_time", "funding_rate"]
         frame["funding_time"] = pd.to_numeric(frame["funding_time"], errors="coerce")
         frame["funding_rate"] = pd.to_numeric(frame["funding_rate"], errors="coerce")
