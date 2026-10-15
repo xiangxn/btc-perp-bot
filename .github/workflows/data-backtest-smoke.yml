@@ -1,0 +1,66 @@
+name: data-backtest-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "scripts/download_binance_usdm.py"
+      - "pyproject.toml"
+      - ".github/workflows/data-backtest-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  download-test-backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+      - name: Run unit and regression tests
+        run: pytest -q
+      - name: Download public Binance USD-M BTCUSDT history
+        run: |
+          python scripts/download_binance_usdm.py \
+            --start 2025-01-01T00:00:00Z \
+            --end 2025-07-01T00:00:00Z \
+            --output data/btcusdt_perp_1m.csv
+      - name: Validate data and run cost-aware backtest
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          from btc_perp_bot.data import validate_ohlcv
+
+          path = "data/btcusdt_perp_1m.csv"
+          bars = pd.read_csv(path, parse_dates=["timestamp"], index_col="timestamp")
+          bars.index = pd.DatetimeIndex(bars.index)
+          if bars.index.tz is None:
+              raise SystemExit("Expected UTC-aware timestamps from downloader")
+          if len(bars) < 100_000:
+              raise SystemExit(f"Unexpectedly short data history: {len(bars)} rows")
+          validate_ohlcv(bars, require_regular_minutes=True)
+          print(f"Validated {len(bars):,} one-minute candles: {bars.index.min()} -> {bars.index.max()}")
+          PY
+          btc-perp-backtest \
+            --input data/btcusdt_perp_1m.csv \
+            --output-dir backtest-output
+      - name: Upload raw data and backtest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-perp-backtest-${{ github.run_number }}
+          path: |
+            data/btcusdt_perp_1m.csv
+            backtest-output/
+          if-no-files-found: warn
+          retention-days: 14
